@@ -1,0 +1,70 @@
+services:
+  llm:
+    build:
+      dockerfile: Dockerfile.llm
+    command: >
+      -m /models/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+      --host 0.0.0.0
+      --port 8080
+      -c 2048
+    volumes:
+      - ./models:/models
+    ports:
+      - "8080:8080"
+    networks:
+      - student_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  inference-service:
+    build: .
+    environment:
+      MODEL_NAME: typeform/distilbert-base-uncased-mnli
+      LLM_URL: http://llm:8080
+      DB_PATH: /data/chat.db
+      HF_HUB_ENABLE_HF_TRANSFER: "0"
+      HF_HUB_DOWNLOAD_TIMEOUT: "120"
+    depends_on:
+      llm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 600s
+    ports:
+      - "8000:8000"
+    networks:
+      - student_net
+    volumes:
+      - sqlite_data:/data
+      - hf_cache:/root/.cache/huggingface
+
+  streamlit:
+    build:
+      dockerfile: Dockerfile.streamlit
+      context: .
+    environment:
+      PYTHONPATH: /app
+      ECHO_BOT_URL: http://inference-service:8000
+    depends_on:
+      inference-service:
+        condition: service_healthy
+    ports:
+      - "8501:8501"
+    networks:
+      - student_net
+
+volumes:
+  sqlite_data:
+  hf_cache:
+
+networks:
+  student_net:
+    driver: bridge

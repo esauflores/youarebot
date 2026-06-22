@@ -1,0 +1,11 @@
+FROM python:3.12.13-slim
+
+RUN pip install --no-cache-dir streamlit==1.43.1 requests pydantic
+
+WORKDIR /app
+
+COPY app/__init__.py app/
+COPY app/models.py app/
+COPY app/web/ app/web/
+
+CMD ["streamlit", "run", "app/web/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
