@@ -42,7 +42,6 @@ services:
     networks:
       - student_net
     volumes:
-      - sqlite_data:/data
       - hf_cache:/root/.cache/huggingface
 
   streamlit:
@@ -61,7 +60,6 @@ services:
       - student_net
 
 volumes:
-  sqlite_data:
   hf_cache:
 
 networks:
