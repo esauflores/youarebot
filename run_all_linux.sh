@@ -16,6 +16,8 @@ remote_host="158.160.135.246"
 private_key="portforward_key"
 port_file="/tmp/random_port.txt"
 
+export DB_PATH="$PWD/data/chat.db"
+
 
 # Loading or generating port
 echo "Loading or generating random port..."
@@ -29,27 +31,51 @@ else
 fi
 
 
-# Check uv is installed
-if ! command -v uv &> /dev/null; then
-  echo -e "${RED}uv is not installed. Install it first: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
-  exit 1
+# Installing Poetry
+echo "Checking if Poetry is installed..."
+if command -v poetry &> /dev/null; then
+  echo "Poetry is already installed."
+  echo "Checking poetry version..."
+  poetry_version=$(poetry --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  if [[ "$poetry_version" == "2.1.1" ]]; then
+    echo "Poetry version is correct: $poetry_version"
+  else
+    echo -e "${YELLOW}Poetry version is not correct. Updating...${NC}"
+    poetry self update 2.1.1
+    echo -e "${WHITE}Poetry updated successfully.${NC}"
+  fi
+else
+  echo "Poetry is not installed. Installing..."
+  curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.1 python3 -
+  echo -e "${WHITE}Poetry installed successfully.${NC}"
 fi
-echo "uv found: $(uv --version)"
+
 
 # Installing Project's dependencies
 echo "Installing Project's dependencies..."
-uv sync
+poetry install
 echo "Dependencies installed successfully."
+
+
+# Starting SSH tunnel
+echo "Starting SSH tunnel..."
+chmod 600 portforward_key
+ssh -f -i "$private_key" -N -R "0.0.0.0:$random_port:localhost:6872" "forwarduser@$remote_host"
+if [[ $? -eq 0 ]]; then
+  echo -e "${WHITE}SSH tunnel started successfully.${NC}"
+else
+  echo -e "${RED}Failed to start SSH tunnel.${NC}"
+fi
 
 
 # Starting the app
 echo -e "${WHITE}Launching the app...${NC}"
-uv run fastapi dev app/api/main.py --host 0.0.0.0 --port 6872 &
+poetry run fastapi dev app/api/main.py --host 0.0.0.0 --port 6873 &
 
 # Starting the web-client (streamlit)
-PYTHONPATH=$(pwd) uv run streamlit run app/web/streamlit_app.py --server.port=8502 --server.address=0.0.0.0
+PYTHONPATH=$(pwd) poetry run streamlit run app/web/streamlit_app.py --server.port=8503 --server.address=0.0.0.0
 
 
-# Log address for registration
+# 10. Log address for registration
 echo "Your address for registration is:"
 echo "http://$remote_host:$random_port"

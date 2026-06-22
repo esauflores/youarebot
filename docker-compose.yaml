@@ -26,7 +26,6 @@ services:
     environment:
       MODEL_NAME: typeform/distilbert-base-uncased-mnli
       LLM_URL: http://llm:8080
-      DB_PATH: /data/chat.db
       HF_HUB_ENABLE_HF_TRANSFER: "0"
       HF_HUB_DOWNLOAD_TIMEOUT: "120"
     depends_on:
